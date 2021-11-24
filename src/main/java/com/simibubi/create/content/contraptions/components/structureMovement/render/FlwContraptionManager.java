@@ -38,6 +38,8 @@ public class FlwContraptionManager extends ContraptionRenderManager<RenderedCont
 
 	@Override
 	public void renderLayer(RenderLayerEvent event) {
+		super.renderLayer(event);
+
 		if (visible.isEmpty()) return;
 
 		RenderType layer = event.getType();
@@ -80,20 +82,16 @@ public class FlwContraptionManager extends ContraptionRenderManager<RenderedCont
 
 	@Override
 	public void removeDeadRenderers() {
-		renderInfos.values().removeIf(renderer -> {
-			if (renderer.isDead()) {
-				renderer.invalidate();
-				return true;
-			}
-			return false;
-		});
-	}
+		boolean removed = renderInfos.values()
+				.removeIf(renderer -> {
+					if (renderer.isDead()) {
+						renderer.invalidate();
+						return true;
+					}
+					return false;
+				});
 
-	@Override
-	public void delete() {
-		for (RenderedContraption renderer : renderInfos.values()) {
-			renderer.invalidate();
-		}
-		renderInfos.clear();
+		// we use visible in #tick() so we have to re-evaluate it if any were removed
+		if (removed) collectVisible();
 	}
 }

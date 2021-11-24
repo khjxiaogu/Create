@@ -29,7 +29,25 @@ public abstract class ContraptionRenderManager<C extends ContraptionRenderInfo> 
 		this.world = (World) world;
 	}
 
-	public abstract void renderLayer(RenderLayerEvent event);
+	public boolean invalidate(Contraption contraption) {
+		int entityId = contraption.entity.getId();
+
+		C removed = renderInfos.remove(entityId);
+
+		if (removed != null) {
+			removed.invalidate();
+			visible.remove(removed);
+			return true;
+		}
+
+		return false;
+	}
+
+	public void renderLayer(RenderLayerEvent event) {
+		for (C c : visible) {
+			c.setupMatrices(event.stack, event.camX, event.camY, event.camZ);
+		}
+	}
 
 	protected abstract C create(Contraption c);
 
@@ -50,13 +68,17 @@ public abstract class ContraptionRenderManager<C extends ContraptionRenderInfo> 
 	}
 
 	public void beginFrame(BeginFrameEvent event) {
-		visible.clear();
 
 		renderInfos.int2ObjectEntrySet()
 				.stream()
 				.map(Map.Entry::getValue)
 				.forEach(renderInfo -> renderInfo.beginFrame(event));
 
+		collectVisible();
+	}
+
+	protected void collectVisible() {
+		visible.clear();
 		renderInfos.int2ObjectEntrySet()
 				.stream()
 				.map(Map.Entry::getValue)
@@ -77,9 +99,15 @@ public abstract class ContraptionRenderManager<C extends ContraptionRenderInfo> 
 	}
 
 	public void delete() {
+		for (C renderer : renderInfos.values()) {
+			renderer.invalidate();
+		}
 		renderInfos.clear();
 	}
 
+	/**
+	 * Remove all render infos associated with dead/removed contraptions.
+	 */
 	public void removeDeadRenderers() {
 		renderInfos.values().removeIf(ContraptionRenderInfo::isDead);
 	}

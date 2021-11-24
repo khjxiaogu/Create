@@ -24,6 +24,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
+import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.util.Constants.NBT;
@@ -32,7 +33,7 @@ import net.minecraftforge.fml.DistExecutor;
 
 public class PipeConnection {
 
-	Direction side;
+	public Direction side;
 
 	// Layer I
 	Couple<Float> pressure; // [inbound, outward]
@@ -87,7 +88,7 @@ public class PipeConnection {
 		FlowSource flowSource = source.get();
 		flowSource.manageSource(world);
 	}
-		
+
 	public boolean manageFlows(World world, BlockPos pos, FluidStack internalFluid,
 		Predicate<FluidStack> extractionPredicate) {
 
@@ -159,11 +160,13 @@ public class PipeConnection {
 		return true;
 	}
 
-	private boolean determineSource(World world, BlockPos pos) {
-		if (!world.isAreaLoaded(pos, 1))
+	public boolean determineSource(World world, BlockPos pos) {
+		BlockPos relative = pos.relative(side);
+		// cannot use world.isLoaded because it always returns true onclient
+		if (world.getChunk(relative.getX() >> 4, relative.getZ() >> 4, ChunkStatus.FULL, false) == null)
 			return false;
+		
 		BlockFace location = new BlockFace(pos, side);
-
 		if (FluidPropagator.isOpenEnd(world, pos, side)) {
 			if (previousSource.orElse(null) instanceof OpenEndedPipe)
 				source = previousSource;
@@ -178,7 +181,7 @@ public class PipeConnection {
 		}
 
 		FluidTransportBehaviour behaviour =
-			TileEntityBehaviour.get(world, pos.relative(side), FluidTransportBehaviour.TYPE);
+			TileEntityBehaviour.get(world, relative, FluidTransportBehaviour.TYPE);
 		source = Optional.of(behaviour == null ? new FlowSource.Blocked(location) : new FlowSource.OtherPipe(location));
 		return true;
 	}
@@ -193,7 +196,7 @@ public class PipeConnection {
 		if (world.isClientSide) {
 			if (!source.isPresent())
 				determineSource(world, pos);
-			
+
 			spawnParticles(world, pos, flow.fluid);
 			if (particleSplashNextTick)
 				spawnSplashOnRim(world, pos, flow.fluid);
@@ -282,8 +285,8 @@ public class PipeConnection {
 
 	/**
 	 * @return zero if outward == inbound <br>
-	 *         positive if outward > inbound <br>
-	 *         negative if outward < inbound
+	 *         positive if outward {@literal >} inbound <br>
+	 *         negative if outward {@literal <} inbound
 	 */
 	public float comparePressure() {
 		return getOutwardPressure() - getInboundPressure();
