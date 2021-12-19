@@ -152,25 +152,26 @@ public class SchematicItem extends Item {
 	@Nonnull
 	@Override
 	public ActionResultType useOn(ItemUseContext context) {
-		if (context.getPlayer() != null && !onItemUse(context.getPlayer(), context.getHand()))
+		if (context.getPlayer() != null && !onItemUse(context.getLevel(),context.getPlayer(), context.getHand()))
 			return super.useOn(context);
 		return ActionResultType.SUCCESS;
 	}
 
 	@Override
 	public ActionResult<ItemStack> use(World worldIn, PlayerEntity playerIn, Hand handIn) {
-		if (!onItemUse(playerIn, handIn))
+		if (!onItemUse(worldIn,playerIn, handIn))
 			return super.use(worldIn, playerIn, handIn);
 		return new ActionResult<>(ActionResultType.SUCCESS, playerIn.getItemInHand(handIn));
 	}
 
-	private boolean onItemUse(PlayerEntity player, Hand hand) {
+	private boolean onItemUse(World world,PlayerEntity player, Hand hand) {
 		if (!player.isShiftKeyDown() || hand != Hand.MAIN_HAND)
 			return false;
 		if (!player.getItemInHand(hand)
 			.hasTag())
 			return false;
-		DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::displayBlueprintScreen);
+		if(world.isClientSide)
+			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::displayBlueprintScreen);
 		return true;
 	}
 
